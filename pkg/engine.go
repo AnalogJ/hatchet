@@ -13,6 +13,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 const BATCH_SIZE = 500
@@ -169,30 +170,6 @@ func (ee *EmailEngine) processMessage(msg *imap.Message) error {
 	ee.logger.Debugf("Env Date: %s", msg.Envelope.Date)
 	ee.logger.Debugf("Env Subject: %s", msg.Envelope.Subject)
 	ee.logger.Debugf("Env From: %s", msg.Envelope.From[0].Address())
-	headerSection, _ := imap.ParseBodySectionName("RFC822.HEADER")
-
-	msgHeader := msg.GetBody(headerSection)
-	if msgHeader == nil {
-		ee.logger.Warnf("Failed to parse message headers")
-	} else {
-
-		//headerBody, _ := ioutil.ReadAll(msgHeader)
-		//ee.logger.Debugf("Header Body: %s", string(headerBody))
-
-		//var r io.Reader
-
-		messageHeader, err := message.Read(msgHeader)
-		if message.IsUnknownCharset(err) {
-			// This error is not fatal
-			log.Println("Unknown encoding:", err)
-		} else if err != nil {
-			log.Fatal(err)
-		}
-
-		ee.logger.Debugf("Unsubscribe Header: %s", messageHeader.Header.Get("List-Unsubscribe"))
-		//imap.ParseAddressList()
-
-	}
 
 	// Aggregate/store some info about the message
 	fromList := msg.Envelope.From
@@ -227,15 +204,18 @@ func (ee *EmailEngine) processMessage(msg *imap.Message) error {
 		// get category
 		//TODO:
 
-		////get unsubscribe link
-		//body := bufio.NewReader(bytes.NewReader(msg.Body))
-		//hdr, err := textproto.ReadHeader(body)
-		//unsubscribeLink := msg.Envelope.Get("List-UnsubscribeLink")
-		//if len(unsubscribeLink) > 0 {
-		//	senderReport.UnsubscribeLink = unsubscribeLink
-		//} else {
-		//	senderReport.UnsubscribeLink = "UNKNOWN LINK"
-		//}
+		//get unsubscribe link
+		unsubscribeUris, err := ee.extractUnsubscribe(msg)
+		if err != nil {
+			return err
+		}
+		for _, unsubscribeUri := range unsubscribeUris {
+			if strings.HasPrefix(unsubscribeUri, "mailto:") {
+				senderReport.UnsubscribeEmail = unsubscribeUri
+			} else {
+				senderReport.UnsubscribeLink = unsubscribeUri
+			}
+		}
 
 		senderReport.LatestMessage = model.SenderMessage{
 			Date:     msg.Envelope.Date,
@@ -245,4 +225,35 @@ func (ee *EmailEngine) processMessage(msg *imap.Message) error {
 	}
 
 	return nil
+}
+
+func (ee *EmailEngine) extractUnsubscribe(msg *imap.Message) ([]string, error) {
+	unsubscribeUris := []string{}
+
+	headerSection, _ := imap.ParseBodySectionName("RFC822.HEADER")
+
+	msgHeader := msg.GetBody(headerSection)
+	if msgHeader == nil {
+		ee.logger.Warnf("Failed to parse message headers")
+		return nil, nil
+	} else {
+
+		messageHeaders, err := message.Read(msgHeader)
+		if message.IsUnknownCharset(err) {
+			ee.logger.Warnf("Unknown encoding for message headers: %v", err)
+		} else if err != nil {
+			return nil, err
+		}
+
+		if messageHeaders.Header.Has("List-Unsubscribe-Post") {
+			unsubscribeUris = append(unsubscribeUris, messageHeaders.Header.Get("List-Unsubscribe-Post"))
+		} else if messageHeaders.Header.Has("List-Unsubscribe") {
+			unsubscribeWrappedUris := strings.Split(messageHeaders.Header.Get("List-Unsubscribe"), ",")
+			for _, unsubscribeUri := range unsubscribeWrappedUris {
+				unsubscribeUris = append(unsubscribeUris, strings.Trim(unsubscribeUri, " ><"))
+			}
+		}
+	}
+	return unsubscribeUris, nil
+
 }
