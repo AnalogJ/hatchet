@@ -8,6 +8,7 @@ import (
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
 	"github.com/emersion/go-message"
+	"github.com/emersion/go-message/charset"
 	"github.com/sirupsen/logrus"
 	"log"
 	"os"
@@ -27,6 +28,8 @@ type EmailEngine struct {
 }
 
 func New(logger *logrus.Entry, config map[string]string) (EmailEngine, error) {
+	imap.CharsetReader = charset.Reader
+
 	emailEngine := EmailEngine{}
 	emailEngine.logger = logger
 	emailEngine.report = map[string]*model.SenderReport{}
@@ -95,10 +98,6 @@ func (ee *EmailEngine) Start() error {
 		//todo publish/generate events for stored documents
 		//ee.generateEvent()
 	}
-
-	//reportJson, _ := json.MarshalIndent(ee.report, "", "    ")
-	//
-	//ee.logger.Infof("Report: %v", string(reportJson))
 
 	return ee.Export()
 }
