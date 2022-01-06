@@ -7,6 +7,7 @@ import (
 	"github.com/analogj/hatchet/pkg/model"
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
+	"github.com/emersion/go-message"
 	"github.com/sirupsen/logrus"
 	"log"
 	"os"
@@ -110,7 +111,7 @@ func (ee *EmailEngine) Export() error {
 
 	w := csv.NewWriter(file)
 
-	err = w.Write([]string{"company", "email", "count", "unsubscribe", "last_msg_date", "last_msg_subject"})
+	err = w.Write([]string{"company", "email", "count", "unsubscribe_link", "unsubscribe_email", "last_msg_date", "last_msg_subject"})
 	if err != nil {
 		return err
 	}
@@ -120,7 +121,9 @@ func (ee *EmailEngine) Export() error {
 			record.CompanyName,
 			email,
 			strconv.FormatInt(record.MessageCount, 10),
-			record.Unsubscribe, record.LatestMessage.Date.String(),
+			record.UnsubscribeLink,
+			record.UnsubscribeEmail,
+			record.LatestMessage.Date.String(),
 			record.LatestMessage.Subject,
 		}); err != nil {
 			return err
@@ -140,7 +143,7 @@ func (ee *EmailEngine) retrieveMessages(seqset *imap.SeqSet) {
 	section := &imap.BodySectionName{Peek: true}
 
 	// Get the whole message body
-	items := []imap.FetchItem{imap.FetchEnvelope, section.FetchItem(), imap.FetchUid}
+	items := []imap.FetchItem{imap.FetchEnvelope, section.FetchItem(), imap.FetchUid, "BODY.PEEK[HEADER]"}
 
 	messages := make(chan *imap.Message, 1)
 	done := make(chan error, 1)
@@ -166,6 +169,30 @@ func (ee *EmailEngine) processMessage(msg *imap.Message) error {
 	ee.logger.Debugf("Env Date: %s", msg.Envelope.Date)
 	ee.logger.Debugf("Env Subject: %s", msg.Envelope.Subject)
 	ee.logger.Debugf("Env From: %s", msg.Envelope.From[0].Address())
+	headerSection, _ := imap.ParseBodySectionName("RFC822.HEADER")
+
+	msgHeader := msg.GetBody(headerSection)
+	if msgHeader == nil {
+		ee.logger.Warnf("Failed to parse message headers")
+	} else {
+
+		//headerBody, _ := ioutil.ReadAll(msgHeader)
+		//ee.logger.Debugf("Header Body: %s", string(headerBody))
+
+		//var r io.Reader
+
+		messageHeader, err := message.Read(msgHeader)
+		if message.IsUnknownCharset(err) {
+			// This error is not fatal
+			log.Println("Unknown encoding:", err)
+		} else if err != nil {
+			log.Fatal(err)
+		}
+
+		ee.logger.Debugf("Unsubscribe Header: %s", messageHeader.Header.Get("List-Unsubscribe"))
+		//imap.ParseAddressList()
+
+	}
 
 	// Aggregate/store some info about the message
 	fromList := msg.Envelope.From
@@ -201,12 +228,14 @@ func (ee *EmailEngine) processMessage(msg *imap.Message) error {
 		//TODO:
 
 		////get unsubscribe link
-		//unsubscribeLink := msg.Envelope..Get("List-Unsubscribe")
+		//body := bufio.NewReader(bytes.NewReader(msg.Body))
+		//hdr, err := textproto.ReadHeader(body)
+		//unsubscribeLink := msg.Envelope.Get("List-UnsubscribeLink")
 		//if len(unsubscribeLink) > 0 {
-		//	senderReport.Unsubscribe = unsubscribeLink
+		//	senderReport.UnsubscribeLink = unsubscribeLink
+		//} else {
+		//	senderReport.UnsubscribeLink = "UNKNOWN LINK"
 		//}
-
-		senderReport.Unsubscribe = "UNKNOWN LINK"
 
 		senderReport.LatestMessage = model.SenderMessage{
 			Date:     msg.Envelope.Date,

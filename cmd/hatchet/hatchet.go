@@ -80,6 +80,7 @@ func main() {
 					&cli.StringFlag{
 						Name:  "imap-hostname",
 						Usage: "The imap server hostname",
+						Value: "imap.gmail.com",
 					},
 					&cli.StringFlag{
 						Name:  "imap-port",
@@ -99,6 +100,11 @@ func main() {
 						Name:  "output-path",
 						Value: "sender_report.csv",
 						Usage: "Path to output file",
+					},
+
+					&cli.BoolFlag{
+						Name:  "peek",
+						Usage: "Instead of fetching emails, leave the email 'read' status untouched.",
 					},
 
 					&cli.BoolFlag{
