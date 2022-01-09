@@ -103,8 +103,8 @@ func main() {
 					},
 
 					&cli.BoolFlag{
-						Name:  "peek",
-						Usage: "Instead of fetching emails, leave the email 'read' status untouched.",
+						Name:  "fetch",
+						Usage: "Instead of PEEKing emails, update the status to each processed email to 'read'.",
 					},
 
 					&cli.BoolFlag{

@@ -3,13 +3,18 @@ package pkg
 import (
 	"crypto/tls"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"github.com/analogj/hatchet/pkg/model"
+	"github.com/anaskhan96/soup"
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
 	"github.com/emersion/go-message"
 	"github.com/emersion/go-message/charset"
+	"github.com/emersion/go-message/mail"
 	"github.com/sirupsen/logrus"
+	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"regexp"
@@ -17,7 +22,7 @@ import (
 	"strings"
 )
 
-const BATCH_SIZE = 500
+const BATCH_SIZE = 5000
 
 type EmailEngine struct {
 	logger *logrus.Entry
@@ -63,17 +68,21 @@ func (ee *EmailEngine) Start() error {
 
 	// message ranges are 1 base indexed.
 	// ie, batches include messages from 1-100
-
+	var totalMessages uint32
+	totalMessages = 0
 	page := 0
+
 	for {
-		// get lastest mailbox information
+		// get latest mailbox information
 		//https://bitmapcake.blogspot.com/2018/07/gmail-mailbox-names-for-imap-connections.html
 		mbox, err := ee.client.Select("[Gmail]/All Mail", false)
 		if err != nil {
 			ee.logger.Fatal(err)
 		}
 		// Get all messages
-		if mbox.Messages == 0 {
+		totalMessages = mbox.Messages
+
+		if totalMessages == 0 {
 			//if theres no messages to process, break out of the loop
 			ee.logger.Printf("No messages to process")
 			break
@@ -81,18 +90,18 @@ func (ee *EmailEngine) Start() error {
 		// 1-500, 501-1000
 		from := uint32((page * BATCH_SIZE) + 1)
 		to := uint32((page + 1) * BATCH_SIZE)
-		if mbox.Messages < to {
-			to = mbox.Messages
+		if totalMessages < to {
+			to = totalMessages
 		}
 		page += 1
 
 		seqset := new(imap.SeqSet)
 		seqset.AddRange(from, to)
 
-		ee.logger.Printf("Retrieving messages (%d-%d, page: %d)", from, to, page)
+		ee.logger.Printf("Retrieving messages (%d-%d, page: %d, total: %d)", from, to, page, totalMessages)
 		ee.retrieveMessages(seqset)
 
-		if mbox.Messages <= to {
+		if totalMessages <= to {
 			break
 		}
 		//todo publish/generate events for stored documents
@@ -111,7 +120,7 @@ func (ee *EmailEngine) Export() error {
 
 	w := csv.NewWriter(file)
 
-	err = w.Write([]string{"company", "email", "count", "unsubscribe_link", "unsubscribe_email", "last_msg_date", "last_msg_subject"})
+	err = w.Write([]string{"company", "email", "count", "unsubscribe_link_oneclick", "unsubscribe_link", "unsubscribe_email", "last_msg_date", "last_msg_subject"})
 	if err != nil {
 		return err
 	}
@@ -121,6 +130,7 @@ func (ee *EmailEngine) Export() error {
 			record.CompanyName,
 			email,
 			strconv.FormatInt(record.MessageCount, 10),
+			strconv.FormatBool(record.UnsubscribeLinkOneClick),
 			record.UnsubscribeLink,
 			record.UnsubscribeEmail,
 			record.LatestMessage.Date.String(),
@@ -153,12 +163,15 @@ func (ee *EmailEngine) retrieveMessages(seqset *imap.SeqSet) {
 
 	for msg := range messages {
 		/* read and process the email */
-		ee.processMessage(msg)
-
+		err := ee.processMessage(msg)
+		if err != nil {
+			ee.logger.Errorf("error processing message: %v", err)
+		}
 	}
 
 	if err := <-done; err != nil {
 		ee.logger.Fatal(err)
+		return
 	}
 }
 
@@ -168,7 +181,11 @@ func (ee *EmailEngine) processMessage(msg *imap.Message) error {
 	ee.logger.Debugf("ID: %d", msg.Uid)
 	ee.logger.Debugf("Env Date: %s", msg.Envelope.Date)
 	ee.logger.Debugf("Env Subject: %s", msg.Envelope.Subject)
-	ee.logger.Debugf("Env From: %s", msg.Envelope.From[0].Address())
+	if len(msg.Envelope.From) > 0 {
+		ee.logger.Debugf("Env From: %s", msg.Envelope.From[0].Address())
+	} else {
+		return errors.New("No From Address provided")
+	}
 
 	// Aggregate/store some info about the message
 	fromList := msg.Envelope.From
@@ -204,10 +221,15 @@ func (ee *EmailEngine) processMessage(msg *imap.Message) error {
 		//TODO:
 
 		//get unsubscribe link
-		unsubscribeUris, err := ee.extractUnsubscribe(msg)
-		if err != nil {
-			return err
+		unsubscribeUris, unsubscribeOneClick, err := ee.extractHeaderUnsubscribe(msg)
+		if err != nil || len(unsubscribeUris) == 0 {
+			//no unsubscribe link found in header, lets check the body
+			unsubscribeUris, err = ee.extractBodyUnsubscribe(msg)
+			if err != nil {
+				return err
+			}
 		}
+		senderReport.UnsubscribeLinkOneClick = unsubscribeOneClick
 		for _, unsubscribeUri := range unsubscribeUris {
 			if strings.HasPrefix(unsubscribeUri, "mailto:") {
 				senderReport.UnsubscribeEmail = unsubscribeUri
@@ -226,33 +248,91 @@ func (ee *EmailEngine) processMessage(msg *imap.Message) error {
 	return nil
 }
 
-func (ee *EmailEngine) extractUnsubscribe(msg *imap.Message) ([]string, error) {
+func (ee *EmailEngine) extractHeaderUnsubscribe(msg *imap.Message) ([]string, bool, error) {
 	unsubscribeUris := []string{}
+	unsubscribeOneClick := false
 
 	headerSection, _ := imap.ParseBodySectionName("RFC822.HEADER")
 
 	msgHeader := msg.GetBody(headerSection)
 	if msgHeader == nil {
 		ee.logger.Warnf("Failed to parse message headers")
-		return nil, nil
+		return nil, false, errors.New("could not parse headers")
 	} else {
 
 		messageHeaders, err := message.Read(msgHeader)
 		if message.IsUnknownCharset(err) {
 			ee.logger.Warnf("Unknown encoding for message headers: %v", err)
 		} else if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 
-		if messageHeaders.Header.Has("List-Unsubscribe-Post") {
-			unsubscribeUris = append(unsubscribeUris, messageHeaders.Header.Get("List-Unsubscribe-Post"))
-		} else if messageHeaders.Header.Has("List-Unsubscribe") {
+		if messageHeaders.Header.Has("List-Unsubscribe-Post") && strings.TrimSpace(messageHeaders.Header.Get("List-Unsubscribe-Post")) == "List-Unsubscribe=One-Click" {
+			unsubscribeOneClick = true
+		}
+		if messageHeaders.Header.Has("List-Unsubscribe") {
 			unsubscribeWrappedUris := strings.Split(messageHeaders.Header.Get("List-Unsubscribe"), ",")
 			for _, unsubscribeUri := range unsubscribeWrappedUris {
 				unsubscribeUris = append(unsubscribeUris, strings.Trim(unsubscribeUri, " ><"))
 			}
 		}
 	}
-	return unsubscribeUris, nil
+	return unsubscribeUris, unsubscribeOneClick, nil
 
+}
+
+func (ee *EmailEngine) extractBodyUnsubscribe(msg *imap.Message) ([]string, error) {
+	unsubscribeUris := []string{}
+
+	//bodySection, _ := imap.ParseBodySectionName("BODY[TEXT]")
+	//msgBody := msg.GetBody(bodySection)
+
+	var bodySection imap.BodySectionName
+	msgBody := msg.GetBody(&bodySection)
+
+	if msgBody == nil {
+		ee.logger.Warnf("Failed to parse message body")
+		return nil, errors.New("could not parse body")
+	}
+
+	// Create a new mail reader
+	msgBodyReader, err := mail.CreateReader(msgBody)
+	if err != nil {
+		return nil, errors.New("could not create body reader")
+	}
+
+	// Process each message's part
+	for {
+		p, err := msgBodyReader.NextPart()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, errors.New("error processing next body part")
+		}
+
+		switch h := p.Header.(type) {
+		case *mail.InlineHeader:
+			//content type:
+			contentTypeHeader, _, err := h.ContentType()
+			if err != nil || !strings.Contains(contentTypeHeader, "html") {
+				continue
+			}
+
+			// This is the message's text (should be HTML)
+			msgBodyBytes, _ := ioutil.ReadAll(p.Body)
+			msgBodyDoc := soup.HTMLParse(string(msgBodyBytes))
+			links := msgBodyDoc.FindAll("a")
+			for _, link := range links {
+				//ee.logger.Debugf("body link -> [%s](%s)\n", link.Text(), link.Attrs()["href"])
+				linkTextCompare := strings.ToLower(link.Text())
+
+				if strings.Contains(linkTextCompare, "subscribe") {
+					ee.logger.Infof("body unsubscribe link -> [%s](%s)\n", link.Text(), link.Attrs()["href"])
+					unsubscribeUris = append(unsubscribeUris, link.Attrs()["href"])
+				}
+			}
+		}
+	}
+
+	return unsubscribeUris, nil
 }
