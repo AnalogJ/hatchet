@@ -2,7 +2,7 @@
 Cut down spam in your Gmail Inbox
 
 
-![](https://rawgit.com/AnalogJ/hatchet/master/docs/spreadsheet.png)
+![](./docs/spreadsheet.png)
 
 # Introduction
 
