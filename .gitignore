@@ -13,3 +13,8 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+# ignore compiled binaries
+hatchet-darwin-amd64
+hatchet-linux-amd64
+hatchet-windows-amd64.exe

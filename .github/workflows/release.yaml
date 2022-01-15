@@ -46,9 +46,9 @@ jobs:
 
           cd $PROJECT_PATH
           GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.goos=darwin -X main.goarch=amd64" -o hatchet-darwin-amd64 -tags "static" $(go list ./cmd/...)
-          chmod +x drawbridge-darwin-amd64
+          chmod +x hatchet-darwin-amd64
           GOOS=linux GOARCH=amd64 go build -ldflags "-X main.goos=linux -X main.goarch=amd64" -o hatchet-linux-amd64 -tags "static" $(go list ./cmd/...)
-          chmod +x drawbridge-linux-amd64
+          chmod +x hatchet-linux-amd64
           GOOS=windows GOARCH=amd64 go build -ldflags "-X main.goos=windows -X main.goarch=amd64" -o hatchet-windows-amd64.exe -tags "static" $(go list ./cmd/...)
 
           # restore modified dir to GH workspace.
