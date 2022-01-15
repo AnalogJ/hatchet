@@ -1,0 +1,24 @@
+name: CI
+# This workflow is triggered on pushes & pull requests
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    container: ghcr.io/packagrio/packagr:latest-golang
+    env:
+      PROJECT_PATH: /go/src/github.com/analogj/hatchet
+      CGO_ENABLED: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Test
+        run: |
+          mkdir -p $(dirname "$PROJECT_PATH")
+          cp -a $GITHUB_WORKSPACE $PROJECT_PATH
+          cd $PROJECT_PATH
+
+          go mod vendor
+          go test -race -coverprofile=coverage.txt -covermode=atomic -v -tags "static" $(go list ./... | grep -v /vendor/)
+
