@@ -1,3 +1,9 @@
+<p align="center">
+  <a href="https://github.com/AnalogJ/hatchet">
+  <img width="300" alt="hatchet_logo" src="./docs/logo.svg">
+  </a>
+</p>
+
 # hatchet
 Cut down spam in your Gmail Inbox
 
@@ -22,3 +28,17 @@ go run cmd/hatchet/hatchet.go report \
     --imap-password=xxxxxxx
 
 ```
+
+
+
+# Versioning
+We use SemVer for versioning. For the versions available, see the tags on this repository.
+
+# Authors
+Jason Kulatunga - Initial Development - @AnalogJ
+
+# License
+
+- MIT
+- [Logo: Hatchet by Fran Couto from NounProject.com](https://thenounproject.com/icon/hatchet-3263047/)
+
