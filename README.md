@@ -20,16 +20,41 @@ Once Hatchet finishes its work, it will generate a spreadsheet that you can use 
 
 # Getting Started
 
-```
+## Windows/Mac/Linux Binaries
 
-go run cmd/hatchet/hatchet.go report \
+You can download the latest version of hatchet by visting the following url: https://github.com/analogj/hatchet/releases
+Download the relevant binary, then run it:
+
+```bash
+
+# windows 
+hatchet-windows-amd64.exe report \
     --imap-hostname=imap.gmail.com \
     --imap-username=xxxxx@gmail.com \
     --imap-password=xxxxxxx
 
+
+# macos
+hatchet-darwin-amd64 report \
+    --imap-hostname=imap.gmail.com \
+    --imap-username=xxxxx@gmail.com \
+    --imap-password=xxxxxxx
+
+# linux
+hatchet-linux-amd64 report \
+    --imap-hostname=imap.gmail.com \
+    --imap-username=xxxxx@gmail.com \
+    --imap-password=xxxxxxx
 ```
 
+## Run from Source
 
+```
+go run cmd/hatchet/hatchet.go report \
+    --imap-hostname=imap.gmail.com \
+    --imap-username=xxxxx@gmail.com \
+    --imap-password=xxxxxxx
+```
 
 # Versioning
 We use SemVer for versioning. For the versions available, see the tags on this repository.
