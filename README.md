@@ -56,6 +56,47 @@ go run cmd/hatchet/hatchet.go report \
     --imap-password=xxxxxxx
 ```
 
+# Google Account Authentication & App Passwords
+
+> If an app or site doesn’t meet Google's security standards, Google might block anyone who’s trying to sign in to your 
+> account from it. Less secure apps can make it easier for hackers to get in to your account, so blocking sign-ins from 
+> these apps helps keep your account safe.
+>
+> [Less secure apps & your Google Account](https://support.google.com/accounts/answer/6010255?hl=en#zippy=%2Cif-less-secure-app-access-is-on-for-your-account%2Cif-less-secure-app-access-is-off-for-your-account%2Cuse-an-app-password)
+
+By default Google will block third party applications from accessing your Gmail account via username + password. 
+To use `hatchet` with your Gmail account, you'll need to authenticate to your account by doing one of the following
+
+## Option 1: Enable "Less secure app" access
+
+- Go to the [Less secure app access](https://myaccount.google.com/lesssecureapps) section of your Google Account. You might need to sign in.
+- Turn Allow less secure apps off.
+
+## Option 2: Create an App Password (required for 2FA protected accounts)
+
+If you use [2-Step-Verification](https://support.google.com/accounts/answer/185839) and get a "password incorrect" error when you sign in, you can try to use an App Password.
+
+- Go to your [Google Account Settings Page](https://myaccount.google.com/). 
+- Select Security.
+- Under "Signing in to Google," select **App Passwords**. You may need to sign in. If you don’t have this option, it might be because:
+  - 2-Step Verification is not set up for your account.
+  - 2-Step Verification is only set up for security keys.
+  - Your account is through work, school, or other organization.
+  - You turned on Advanced Protection.
+- At the bottom, choose Select app and choose the app you using and then **Select device** and choose the device you’re using and then Generate.
+- Follow the instructions to enter the App Password. The App Password is the 16-character code in the yellow bar on your device.
+- Tap Done.
+
+## Use your credentials with hatchet
+
+```
+hatchet report \
+    --imap-hostname=imap.gmail.com \
+    --imap-username=xxxxx@gmail.com \
+    --imap-password=[gmail account password OR app password]
+```
+
+
 # Versioning
 We use SemVer for versioning. For the versions available, see the tags on this repository.
 
