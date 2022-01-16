@@ -70,7 +70,7 @@ To use `hatchet` with your Gmail account, you'll need to authenticate to your ac
 ## Option 1: Enable "Less secure app" access
 
 - Go to the [Less secure app access](https://myaccount.google.com/lesssecureapps) section of your Google Account. You might need to sign in.
-- Turn Allow less secure apps off.
+- Turn Allow less secure apps on.
 
 ## Option 2: Create an App Password (required for 2FA protected accounts)
 
