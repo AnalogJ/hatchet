@@ -70,11 +70,15 @@ To use `hatchet` with your Gmail account, you'll need to authenticate to your ac
 ## Option 1: Enable "Less secure app" access
 
 - Go to the [Less secure app access](https://myaccount.google.com/lesssecureapps) section of your Google Account. You might need to sign in.
-- Turn Allow less secure apps on.
+- Turn **Allow less secure apps** on.
 
 ## Option 2: Create an App Password (required for 2FA protected accounts)
 
 If you use [2-Step-Verification](https://support.google.com/accounts/answer/185839) and get a "password incorrect" error when you sign in, you can try to use an App Password.
+
+> An App Password is a 16-digit passcode that gives a less secure app or device permission to access your Google Account. App Passwords can only be used with accounts that have 2-Step Verification turned on.
+> 
+> https://support.google.com/accounts/answer/185833
 
 - Go to your [Google Account Settings Page](https://myaccount.google.com/). 
 - Select Security.
@@ -83,11 +87,13 @@ If you use [2-Step-Verification](https://support.google.com/accounts/answer/1858
   - 2-Step Verification is only set up for security keys.
   - Your account is through work, school, or other organization.
   - You turned on Advanced Protection.
-- At the bottom, choose Select app and choose the app you using and then **Select device** and choose the device you’re using and then Generate.
-- Follow the instructions to enter the App Password. The App Password is the 16-character code in the yellow bar on your device.
+- At the bottom, choose **Select app** and choose **Mail** and then **Select device** and choose **Other**, type in "hatchet" and then Generate.
+- The App Password is the 16-character code in the yellow bar. Copy this text, store it securely in a password manager or similar. 
 - Tap Done.
 
 ## Use your credentials with hatchet
+
+Now that you have the correct credentials to authenticate to your Gmail account with Hatchet, you can run the tool locally. 
 
 ```
 hatchet report \
@@ -95,7 +101,6 @@ hatchet report \
     --imap-username=xxxxx@gmail.com \
     --imap-password=[gmail account password OR app password]
 ```
-
 
 # Versioning
 We use SemVer for versioning. For the versions available, see the tags on this repository.
