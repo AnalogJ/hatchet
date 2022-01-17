@@ -47,6 +47,8 @@ jobs:
           cd $PROJECT_PATH
           GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.goos=darwin -X main.goarch=amd64" -o hatchet-darwin-amd64 -tags "static" $(go list ./cmd/...)
           chmod +x hatchet-darwin-amd64
+          GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.goos=darwin -X main.goarch=arm64" -o hatchet-darwin-arm64 -tags "static" $(go list ./cmd/...)
+          chmod +x hatchet-darwin-arm64
           GOOS=linux GOARCH=amd64 go build -ldflags "-X main.goos=linux -X main.goarch=amd64" -o hatchet-linux-amd64 -tags "static" $(go list ./cmd/...)
           chmod +x hatchet-linux-amd64
           GOOS=windows GOARCH=amd64 go build -ldflags "-X main.goos=windows -X main.goarch=amd64" -o hatchet-windows-amd64.exe -tags "static" $(go list ./cmd/...)
@@ -66,4 +68,4 @@ jobs:
           # This is necessary in order to push a commit to the repo
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Leave this line unchanged
         with:
-          upload_assets: 'hatchet-darwin-amd64 hatchet-linux-amd64 hatchet-windows-amd64.exe'
+          upload_assets: 'hatchet-darwin-amd64 hatchet-darwin-arm64 hatchet-linux-amd64 hatchet-windows-amd64.exe'
