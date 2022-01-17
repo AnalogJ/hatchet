@@ -69,6 +69,7 @@ func main() {
 						"imap-username": c.String("imap-username"),
 						"imap-password": c.String("imap-password"),
 						"output-path":   c.String("output-path"),
+						"mailbox-name":  c.String("mailbox-name"),
 					})
 					if err != nil {
 						return err
@@ -100,6 +101,12 @@ func main() {
 						Name:  "output-path",
 						Value: "sender_report.csv",
 						Usage: "Path to output file",
+					},
+
+					&cli.StringFlag{
+						Name:  "mailbox-name",
+						Value: "[Gmail]/All Mail",
+						Usage: "Name of your mailbox",
 					},
 
 					&cli.BoolFlag{

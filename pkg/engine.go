@@ -28,8 +28,9 @@ type EmailEngine struct {
 	logger *logrus.Entry
 	client *client.Client
 
-	reportPath string
-	report     map[string]*model.SenderReport
+	reportPath  string
+	mailboxName string
+	report      map[string]*model.SenderReport
 }
 
 func New(logger *logrus.Entry, config map[string]string) (EmailEngine, error) {
@@ -39,6 +40,7 @@ func New(logger *logrus.Entry, config map[string]string) (EmailEngine, error) {
 	emailEngine.logger = logger
 	emailEngine.report = map[string]*model.SenderReport{}
 	emailEngine.reportPath = config["output-path"]
+	emailEngine.mailboxName = config["mailbox-name"]
 
 	emailEngine.logger.Infoln("Connecting to server...")
 
@@ -75,7 +77,7 @@ func (ee *EmailEngine) Start() error {
 	for {
 		// get latest mailbox information
 		//https://bitmapcake.blogspot.com/2018/07/gmail-mailbox-names-for-imap-connections.html
-		mbox, err := ee.client.Select("[Gmail]/All Mail", false)
+		mbox, err := ee.client.Select(ee.mailboxName, false)
 		if err != nil {
 			ee.logger.Fatal(err)
 		}
