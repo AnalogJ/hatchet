@@ -66,6 +66,16 @@ func (ee *EmailEngine) Start() error {
 	// Don't forget to logout
 	defer ee.client.Logout()
 
+	var mailboxName string
+	if ee.configuration.IsSet("imap-mailbox-name") {
+		mailboxName = ee.configuration.GetString("imap-mailbox-name")
+		ee.logger.Infof("Mailbox name from configuration: %s", mailboxName)
+	} else {
+		mailboxName = ee.getMailboxName()
+		ee.logger.Infof("Mailbox name: %s", mailboxName)
+
+	}
+
 	//retrieve messages from mailbox
 	//note: the number of messages may be absurdly large, so lets do this in batches for safety (sets of 100 messages)
 
@@ -77,7 +87,7 @@ func (ee *EmailEngine) Start() error {
 
 	// get latest mailbox information
 	//https://bitmapcake.blogspot.com/2018/07/gmail-mailbox-names-for-imap-connections.html
-	mbox, err := ee.client.Select(ee.configuration.GetString("imap-mailbox-name"), false)
+	mbox, err := ee.client.Select(mailboxName, false)
 	if err != nil {
 		ee.logger.Fatal(err)
 	}
@@ -154,6 +164,28 @@ func (ee *EmailEngine) Export() error {
 		return err
 	}
 	return nil
+}
+
+//depending on the user's language settings, the Gmail/All Mail string may differ
+//instead we'll look for the \All attribute, then findind the associated Gmail inbox name
+func (ee *EmailEngine) getMailboxName() string {
+	// List mailboxes
+	mailboxes := make(chan *imap.MailboxInfo, 10)
+	done := make(chan error, 1)
+	go func() {
+		done <- ee.client.List("", "*", mailboxes)
+	}()
+
+	for m := range mailboxes {
+		for _, attr := range m.Attributes {
+			if attr == `\All` {
+				return m.Name
+			}
+		}
+	}
+
+	// we didn't find the the `\All` attribute on any mailbox, fallback to Gmail's default
+	return "[Gmail]/All Mail"
 }
 
 func (ee *EmailEngine) retrieveMessages(seqset *imap.SeqSet) {

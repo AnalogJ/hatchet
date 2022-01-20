@@ -31,7 +31,6 @@ func (c *configuration) Init() error {
 	c.SetDefault("imap-port", "993")
 	c.SetDefault("imap-username", "")
 	c.SetDefault("imap-password", "")
-	c.SetDefault("imap-mailbox-name", "[Gmail]/All Mail")
 
 	c.SetDefault("output-path", "sender_report.csv")
 
