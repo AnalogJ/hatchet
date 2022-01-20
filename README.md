@@ -45,11 +45,21 @@ hatchet-linux-amd64 report \
     --imap-hostname=imap.gmail.com \
     --imap-username=xxxxx@gmail.com \
     --imap-password=xxxxxxx
+    
+```
+
+## Run via Docker
+
+```bash
+docker run --rm ghcr.io/analogj/hatchet:latest report \
+    --imap-hostname=imap.gmail.com \
+    --imap-username=xxxxx@gmail.com \
+    --imap-password=xxxxxxx
 ```
 
 ## Run from Source
 
-```
+```bash
 go run cmd/hatchet/hatchet.go report \
     --imap-hostname=imap.gmail.com \
     --imap-username=xxxxx@gmail.com \
