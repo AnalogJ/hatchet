@@ -51,7 +51,9 @@ hatchet-linux-amd64 report \
 ## Run via Docker
 
 ```bash
-docker run --rm ghcr.io/analogj/hatchet:latest report \
+docker run --rm -v `pwd`:/out/ \
+    ghcr.io/analogj/hatchet:latest report \
+    --output-path="/out/sender_report.csv" \
     --imap-hostname=imap.gmail.com \
     --imap-username=xxxxx@gmail.com \
     --imap-password=xxxxxxx
