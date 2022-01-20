@@ -52,8 +52,8 @@ jobs:
         uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
         with:
           tags: |
-            latest=auto
             type=ref,enable=true,event=branch
+            type=raw,value=latest,enable=${{ endsWith(github.ref, github.event.repository.default_branch) }}
 
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
