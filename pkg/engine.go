@@ -13,6 +13,7 @@ import (
 	"github.com/emersion/go-message"
 	"github.com/emersion/go-message/charset"
 	"github.com/emersion/go-message/mail"
+	"github.com/schollz/progressbar/v3"
 	"github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
@@ -30,7 +31,8 @@ type EmailEngine struct {
 	client        *client.Client
 	configuration config.Interface
 
-	report map[string]*model.SenderReport
+	progressBar *progressbar.ProgressBar
+	report      map[string]*model.SenderReport
 }
 
 func New(logger *logrus.Entry, configuration config.Interface) (EmailEngine, error) {
@@ -73,21 +75,25 @@ func (ee *EmailEngine) Start() error {
 	totalMessages = 0
 	page := 0
 
-	for {
-		// get latest mailbox information
-		//https://bitmapcake.blogspot.com/2018/07/gmail-mailbox-names-for-imap-connections.html
-		mbox, err := ee.client.Select(ee.configuration.GetString("imap-mailbox-name"), false)
-		if err != nil {
-			ee.logger.Fatal(err)
-		}
-		// Get all messages
-		totalMessages = mbox.Messages
+	// get latest mailbox information
+	//https://bitmapcake.blogspot.com/2018/07/gmail-mailbox-names-for-imap-connections.html
+	mbox, err := ee.client.Select(ee.configuration.GetString("imap-mailbox-name"), false)
+	if err != nil {
+		ee.logger.Fatal(err)
+	}
+	// Get count of all messages
+	totalMessages = mbox.Messages
 
-		if totalMessages == 0 {
-			//if theres no messages to process, break out of the loop
-			ee.logger.Printf("No messages to process")
-			break
-		}
+	//set a progress bar
+	ee.progressBar = progressbar.Default(int64(totalMessages))
+
+	if totalMessages == 0 {
+		//if theres no messages to process, break out of the loop
+		ee.logger.Printf("No messages to process")
+		return errors.New("No messages to process")
+	}
+
+	for {
 		// 1-500, 501-1000
 		from := uint32((page * BATCH_SIZE) + 1)
 		to := uint32((page + 1) * BATCH_SIZE)
@@ -99,7 +105,7 @@ func (ee *EmailEngine) Start() error {
 		seqset := new(imap.SeqSet)
 		seqset.AddRange(from, to)
 
-		ee.logger.Printf("Retrieving messages (%d-%d, page: %d, total: %d)", from, to, page, totalMessages)
+		ee.logger.Debugf("Retrieving messages (%d-%d, page: %d, total: %d)", from, to, page, totalMessages)
 		ee.retrieveMessages(seqset)
 
 		if totalMessages <= to {
@@ -173,6 +179,7 @@ func (ee *EmailEngine) retrieveMessages(seqset *imap.SeqSet) {
 		if err != nil {
 			ee.logger.Errorf("error processing message: %v", err)
 		}
+		ee.progressBar.Add(1)
 	}
 
 	if err := <-done; err != nil {
@@ -333,7 +340,7 @@ func (ee *EmailEngine) extractBodyUnsubscribe(msg *imap.Message) ([]string, erro
 				linkTextCompare := strings.ToLower(link.Text())
 
 				if strings.Contains(linkTextCompare, "subscribe") {
-					ee.logger.Infof("body unsubscribe link -> [%s](%s)\n", link.Text(), link.Attrs()["href"])
+					ee.logger.Debugf("body unsubscribe link -> [%s](%s)\n", link.Text(), link.Attrs()["href"])
 					unsubscribeUris = append(unsubscribeUris, link.Attrs()["href"])
 				}
 			}
