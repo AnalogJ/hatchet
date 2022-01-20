@@ -18,3 +18,4 @@ vendor/
 hatchet-darwin-amd64
 hatchet-linux-amd64
 hatchet-windows-amd64.exe
+hatchet-darwin-arm64
