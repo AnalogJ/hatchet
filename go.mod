@@ -7,7 +7,8 @@ require (
 	github.com/anaskhan96/soup v1.2.4
 	github.com/emersion/go-imap v1.1.0
 	github.com/emersion/go-message v0.15.0
-	github.com/fatih/color v1.12.0
+	github.com/fatih/color v1.13.0
 	github.com/sirupsen/logrus v1.8.1
+	github.com/spf13/viper v1.10.1
 	github.com/urfave/cli v1.22.5
 )

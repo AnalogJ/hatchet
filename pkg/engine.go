@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
+	"github.com/analogj/hatchet/pkg/config"
 	"github.com/analogj/hatchet/pkg/model"
 	"github.com/anaskhan96/soup"
 	"github.com/emersion/go-imap"
@@ -25,25 +26,25 @@ import (
 const BATCH_SIZE = 5000
 
 type EmailEngine struct {
-	logger *logrus.Entry
-	client *client.Client
+	logger        *logrus.Entry
+	client        *client.Client
+	configuration config.Interface
 
-	reportPath string
-	report     map[string]*model.SenderReport
+	report map[string]*model.SenderReport
 }
 
-func New(logger *logrus.Entry, config map[string]string) (EmailEngine, error) {
+func New(logger *logrus.Entry, configuration config.Interface) (EmailEngine, error) {
 	imap.CharsetReader = charset.Reader
 
 	emailEngine := EmailEngine{}
 	emailEngine.logger = logger
 	emailEngine.report = map[string]*model.SenderReport{}
-	emailEngine.reportPath = config["output-path"]
+	emailEngine.configuration = configuration
 
 	emailEngine.logger.Infoln("Connecting to server...")
 
 	// Connect to server
-	c, err := client.DialTLS(fmt.Sprintf("%s:%s", config["imap-hostname"], config["imap-port"]), &tls.Config{ServerName: config["imap-hostname"]})
+	c, err := client.DialTLS(fmt.Sprintf("%s:%s", configuration.GetString("imap-hostname"), configuration.GetString("imap-port")), &tls.Config{ServerName: configuration.GetString("imap-hostname")})
 	if err != nil {
 		emailEngine.logger.Fatal(err)
 	}
@@ -51,7 +52,7 @@ func New(logger *logrus.Entry, config map[string]string) (EmailEngine, error) {
 	emailEngine.logger.Infoln("Connected")
 
 	// Login
-	if err := emailEngine.client.Login(config["imap-username"], config["imap-password"]); err != nil {
+	if err := emailEngine.client.Login(configuration.GetString("imap-username"), configuration.GetString("imap-password")); err != nil {
 		emailEngine.logger.Fatal(err)
 	}
 	emailEngine.logger.Println("Logged in")
@@ -75,7 +76,7 @@ func (ee *EmailEngine) Start() error {
 	for {
 		// get latest mailbox information
 		//https://bitmapcake.blogspot.com/2018/07/gmail-mailbox-names-for-imap-connections.html
-		mbox, err := ee.client.Select("[Gmail]/All Mail", false)
+		mbox, err := ee.client.Select(ee.configuration.GetString("imap-mailbox-name"), false)
 		if err != nil {
 			ee.logger.Fatal(err)
 		}
@@ -112,7 +113,7 @@ func (ee *EmailEngine) Start() error {
 }
 
 func (ee *EmailEngine) Export() error {
-	file, err := os.Create(ee.reportPath)
+	file, err := os.Create(ee.configuration.GetString("output-path"))
 	if err != nil {
 		return err
 	}
@@ -153,7 +154,12 @@ func (ee *EmailEngine) retrieveMessages(seqset *imap.SeqSet) {
 	section := &imap.BodySectionName{Peek: true}
 
 	// Get the whole message body
-	items := []imap.FetchItem{imap.FetchEnvelope, section.FetchItem(), imap.FetchUid, "BODY.PEEK[HEADER]"}
+	var headerFetchInstruction imap.FetchItem = "BODY.PEEK[HEADER]"
+	if ee.configuration.GetBool("fetch") {
+		headerFetchInstruction = "BODY[HEADER]"
+	}
+
+	items := []imap.FetchItem{imap.FetchEnvelope, section.FetchItem(), imap.FetchUid, headerFetchInstruction}
 
 	messages := make(chan *imap.Message, 1)
 	done := make(chan error, 1)

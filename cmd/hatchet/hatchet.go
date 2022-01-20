@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/analogj/go-util/utils"
 	"github.com/analogj/hatchet/pkg"
+	"github.com/analogj/hatchet/pkg/config"
 	"github.com/analogj/hatchet/pkg/version"
 	"github.com/fatih/color"
 	"github.com/sirupsen/logrus"
@@ -17,6 +18,15 @@ var goos string
 var goarch string
 
 func main() {
+
+	configuration, err := config.Create()
+	if err != nil {
+		fmt.Printf("FATAL: %+v\n", err)
+		os.Exit(1)
+	}
+	//we're going to load the config file manually, since we need to validate it.
+	_ = configuration.ReadConfig("hatchet.yaml") // Find and read the config file if it exists
+
 	app := &cli.App{
 		Name:     "hatchet",
 		Usage:    "Cut down spam in your Gmail Inbox ",
@@ -57,19 +67,39 @@ func main() {
 						"type": "email",
 					})
 
-					if c.Bool("debug") {
+					// map flags on-top of the configuration object
+					if c.IsSet("imap-hostname") {
+						configuration.Set("imap-hostname", c.String("imap-hostname"))
+					}
+					if c.IsSet("imap-port") {
+						configuration.Set("imap-port", c.String("imap-port"))
+					}
+					if c.IsSet("imap-username") {
+						configuration.Set("imap-username", c.String("imap-username"))
+					}
+					if c.IsSet("imap-password") {
+						configuration.Set("imap-password", c.String("imap-password"))
+					}
+					if c.IsSet("imap-mailbox-name") {
+						configuration.Set("imap-mailbox-name", c.String("imap-mailbox-name"))
+					}
+					if c.IsSet("output-path") {
+						configuration.Set("output-path", c.String("output-path"))
+					}
+					if c.IsSet("fetch") {
+						configuration.Set("fetch", c.Bool("fetch"))
+					}
+					if c.IsSet("debug") {
+						configuration.Set("debug", c.Bool("debug"))
+					}
+
+					if configuration.GetBool("debug") {
 						logrus.SetLevel(logrus.DebugLevel)
 					} else {
 						logrus.SetLevel(logrus.InfoLevel)
 					}
 
-					emailEngine, err := pkg.New(reportLogger, map[string]string{
-						"imap-hostname": c.String("imap-hostname"),
-						"imap-port":     c.String("imap-port"),
-						"imap-username": c.String("imap-username"),
-						"imap-password": c.String("imap-password"),
-						"output-path":   c.String("output-path"),
-					})
+					emailEngine, err := pkg.New(reportLogger, configuration)
 					if err != nil {
 						return err
 					}
@@ -80,25 +110,28 @@ func main() {
 					&cli.StringFlag{
 						Name:  "imap-hostname",
 						Usage: "The imap server hostname",
-						Value: "imap.gmail.com",
 					},
 					&cli.StringFlag{
 						Name:  "imap-port",
 						Usage: "The imap server port",
-						Value: "993",
 					},
 					&cli.StringFlag{
-						Name:  "imap-username",
-						Usage: "The imap server username",
+						Name:     "imap-username",
+						Usage:    "The imap server username",
+						Required: true,
 					},
 					&cli.StringFlag{
-						Name:  "imap-password",
-						Usage: "The imap server password",
+						Name:     "imap-password",
+						Usage:    "The imap server password",
+						Required: true,
+					},
+					&cli.StringFlag{
+						Name:  "imap-mailbox-name",
+						Usage: "The imap mailbox to use. Defaults to Gmail's '[Gmail]/All Mail'",
 					},
 
 					&cli.StringFlag{
 						Name:  "output-path",
-						Value: "sender_report.csv",
 						Usage: "Path to output file",
 					},
 
@@ -116,7 +149,7 @@ func main() {
 		},
 	}
 
-	err := app.Run(os.Args)
+	err = app.Run(os.Args)
 	if err != nil {
 		log.Fatal(color.HiRedString("ERROR: %v", err))
 	}
