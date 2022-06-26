@@ -13,12 +13,10 @@ on:
         default: 'pkg/version/version.go'
 
 jobs:
-  build:
-    name: Build
+  release:
+    name: Create Release
     runs-on: ubuntu-latest
     container: ghcr.io/packagrio/packagr:latest-golang
-    env:
-      PROJECT_PATH: /go/src/github.com/analogj/hatchet
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -34,33 +32,62 @@ jobs:
           version_metadata_path: ${{ github.event.inputs.version_metadata_path }}
       - name: Test
         run: |
-          mkdir -p $(dirname "$PROJECT_PATH")
-          cp -a $GITHUB_WORKSPACE $PROJECT_PATH
-          cd $PROJECT_PATH
-
-          go mod vendor
-          go test -v -tags "static" $(go list ./... | grep -v /vendor/)
-
-      - name: Build Binaries
-        run: |
-
-          cd $PROJECT_PATH
-          GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.goos=darwin -X main.goarch=amd64" -o hatchet-darwin-amd64 -tags "static" $(go list ./cmd/...)
-          chmod +x hatchet-darwin-amd64
-          GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.goos=darwin -X main.goarch=arm64" -o hatchet-darwin-arm64 -tags "static" $(go list ./cmd/...)
-          chmod +x hatchet-darwin-arm64
-          GOOS=linux GOARCH=amd64 go build -ldflags "-X main.goos=linux -X main.goarch=amd64" -o hatchet-linux-amd64 -tags "static" $(go list ./cmd/...)
-          chmod +x hatchet-linux-amd64
-          GOOS=windows GOARCH=amd64 go build -ldflags "-X main.goos=windows -X main.goarch=amd64" -o hatchet-windows-amd64.exe -tags "static" $(go list ./cmd/...)
-
-          # restore modified dir to GH workspace.
-          cp -arf $PROJECT_PATH/. $GITHUB_WORKSPACE/
+          make clean test
       - name: Commit Changes
         id: commit
         uses: packagrio/action-releasr-go@master
         env:
           # This is necessary in order to push a commit to the repo
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Leave this line unchanged
+  build:
+    name: Build ${{ matrix.cfg.goos }}/${{ matrix.cfg.goarch }}
+    runs-on: ${{ matrix.cfg.on }}
+    env:
+      GOOS: ${{ matrix.cfg.goos }}
+      GOARCH: ${{ matrix.cfg.goarch }}
+      GOARM: ${{ matrix.cfg.goarm }}
+    strategy:
+      matrix:
+        cfg:
+          - { on: ubuntu-latest,  goos: linux,      goarch: amd64 }
+          - { on: ubuntu-latest,  goos: linux,      goarch: arm,    goarm: 5 }
+          - { on: ubuntu-latest,  goos: linux,      goarch: arm,    goarm: 6 }
+          - { on: ubuntu-latest,  goos: linux,      goarch: arm,    goarm: 7 }
+          - { on: ubuntu-latest,  goos: linux,      goarch: arm64 }
+          - { on: macos-latest,   goos: darwin,     goarch: amd64 }
+          - { on: macos-latest,   goos: darwin,     goarch: arm64 }
+          - { on: macos-latest,   goos: freebsd,    goarch: amd64 }
+          - { on: macos-latest,   goos: freebsd,    goarch: arm64 }
+          - { on: windows-latest, goos: windows,    goarch: amd64 }
+          - { on: windows-latest, goos: windows,    goarch: arm64 }
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '1.18.3' # The Go version to download (if necessary) and use.
+      - name: Build
+        run: |
+          make clean build
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: hatchet
+          path: hatchet-${{ matrix.cfg.goos }}-${{ matrix.cfg.goarch }}*
+          retention-days: 1
+  release-binaries:
+    name: Release Binaries
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download binaries
+        uses: actions/download-artifact@v3
+        with:
+          name: hatchet
+      - name: List
+        shell: bash
+        run: |
+          ls -alt
       - name: Publish Release
         id: publish
         uses: packagrio/action-publishr-go@master
@@ -68,4 +95,15 @@ jobs:
           # This is necessary in order to push a commit to the repo
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Leave this line unchanged
         with:
-          upload_assets: 'hatchet-darwin-amd64 hatchet-darwin-arm64 hatchet-linux-amd64 hatchet-windows-amd64.exe'
+          upload_assets: |
+          hatchet-linux-amd64
+          hatchet-linux-arm-5
+          hatchet-linux-arm-6
+          hatchet-linux-arm-7
+          hatchet-linux-arm64
+          hatchet-darwin-amd64
+          hatchet-darwin-arm64
+          hatchet-freebsd-amd64
+          hatchet-freebsd-arm64
+          hatchet-windows-amd64.exe
+          hatchet-windows-arm64.exe
