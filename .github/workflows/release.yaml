@@ -39,6 +39,12 @@ jobs:
         env:
           # This is necessary in order to push a commit to the repo
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Leave this line unchanged
+      - name: Upload workspace
+        uses: actions/upload-artifact@v3
+        with:
+          name: workspace
+          path: ${{ github.workspace }}/**/*
+          retention-days: 1
   build:
     name: Build ${{ matrix.cfg.goos }}/${{ matrix.cfg.goarch }}
     needs: release
@@ -81,6 +87,10 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - name: Download workspace
+        uses: actions/download-artifact@v3
+        with:
+          name: workspace
       - name: Download binaries
         uses: actions/download-artifact@v3
         with:
