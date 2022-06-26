@@ -96,14 +96,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Leave this line unchanged
         with:
           upload_assets: |
-          hatchet-linux-amd64
-          hatchet-linux-arm-5
-          hatchet-linux-arm-6
-          hatchet-linux-arm-7
-          hatchet-linux-arm64
-          hatchet-darwin-amd64
-          hatchet-darwin-arm64
-          hatchet-freebsd-amd64
-          hatchet-freebsd-arm64
-          hatchet-windows-amd64.exe
-          hatchet-windows-arm64.exe
+            hatchet-linux-amd64
+            hatchet-linux-arm-5
+            hatchet-linux-arm-6
+            hatchet-linux-arm-7
+            hatchet-linux-arm64
+            hatchet-darwin-amd64
+            hatchet-darwin-arm64
+            hatchet-freebsd-amd64
+            hatchet-freebsd-arm64
+            hatchet-windows-amd64.exe
+            hatchet-windows-arm64.exe
