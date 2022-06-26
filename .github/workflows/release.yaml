@@ -41,6 +41,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Leave this line unchanged
   build:
     name: Build ${{ matrix.cfg.goos }}/${{ matrix.cfg.goarch }}
+    needs: release
     runs-on: ${{ matrix.cfg.on }}
     env:
       GOOS: ${{ matrix.cfg.goos }}
