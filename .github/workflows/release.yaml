@@ -68,8 +68,10 @@ jobs:
           - { on: windows-latest, goos: windows,    goarch: amd64 }
           - { on: windows-latest, goos: windows,    goarch: arm64 }
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
+      - name: Download workspace
+        uses: actions/download-artifact@v3
+        with:
+          name: workspace
       - uses: actions/setup-go@v3
         with:
           go-version: '1.18.3' # The Go version to download (if necessary) and use.
